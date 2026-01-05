@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
@@ -29,9 +30,11 @@ def set_selenium_options():
     options.add_argument("--proxy-server='direct://'")
     # すべてのホストでプロキシをバイパスする
     options.add_argument("--proxy-bypass-list=*")
-
+    # バックグラウンドでのネットワーク通信（自動更新・事前接続など）を無効化し、不要な通信を抑制
     options.add_argument("--disable-background-networking")
+    # Chrome プロファイルの同期（Google アカウント同期）を無効化し、外部依存と副作用を回避
     options.add_argument("--disable-sync")
+    # ブラウザ通知（Web Push / 権限要求ポップアップ）を無効化し、自動操作の安定性を向上
     options.add_argument("--disable-notifications")
 
     return options
@@ -75,23 +78,25 @@ def print_finish_time():
 
 
 # main func
-def new_livepocket(url):
+def livepocket_new(url, target_time_str):
+    # --- 発売画面に遷移 ---
     driver.get(url)
-    input("ログイン完了したら Enter を押してください")
     
-    # start = time.perf_counter()
+    # --- 発売時間まで待機 ---
+    wait_until(target_time_str)
+    driver.refresh()
 
-    # --- チケットを購入する ---
+    # --- チケットを購入する ボタンをクリック ---
     driver.find_element(By.CSS_SELECTOR, "a.event-detail-ticket-button").click()
 
     # --- チケット枚数選択 ---
     ticket_selects = wait.until(
         EC.presence_of_all_elements_located((By.CSS_SELECTOR, "select.input-select__select.js-ticket-select"))
     )
-    ticket_select = Select(ticket_selects[2]) # 上から3番目のチケット
+    ticket_select = Select(ticket_selects[0]) # 上から1番目のチケット
     ticket_select.select_by_value("1") # 枚数を１枚を選択
 
-    # --- 次へ進む ---
+    # --- 次へ進む ボタンをクリック ---
     driver.find_element(By.CSS_SELECTOR, "button.js-ticket-submit-button").click()
 
     # --- コンビニ決済を選択 ---
@@ -112,17 +117,15 @@ def new_livepocket(url):
         EC.element_to_be_clickable((By.CSS_SELECTOR, "label.input-check--block"))
     )
     agree_label.click()
-    # print(time.perf_counter() - start) # 2.23s
 
-    # input("ログイン完了したら Enter を押してください")
-
-    # --- チケット購入 ---
-    # submit_button =wait.until(
-    #     EC.element_to_be_clickable((By.ID, "submit-button"))
-    # )
-    # submit_button.click()
+    # --- チケット購入 ボタンをクリック　---
+    submit_button =wait.until(
+        EC.element_to_be_clickable((By.ID, "submit-button"))
+    )
+    submit_button.click()
 
 def ticketdive(url, target_time_str):
+    zero_yen = True # 当日払いの場合はtrue
     # --- 発売画面に遷移 ---
     driver.get(url)
 
@@ -132,18 +135,15 @@ def ticketdive(url, target_time_str):
 
     # --- チケット枚数選択 ---
     ticket_cards = driver.find_elements(By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
-    # 上から 0,1,2
-    ticket_card_select = Select(ticket_cards[0].find_element(By.TAG_NAME, "select"))
-    # 枚数を選択
-    ticket_card_select.select_by_value("1")
+    ticket_card_select = Select(ticket_cards[0].find_element(By.TAG_NAME, "select")) # 上から1番目のチケット
+    ticket_card_select.select_by_value("1") # 枚数を1枚を選択
 
-    # --- 申し込みをするボタンを押す ---
+    # --- 申し込みをする ボタンをクリック ---
     button = wait.until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "button.Button_rectMain___A3NV"))
     )
     button.click()
 
-    zero_yen = True
     if zero_yen != True :
         # --- お目当てを選択 ---
         group_selects = wait.until(
@@ -178,20 +178,43 @@ def ticketdive(url, target_time_str):
     )
     complete_button.click()
 
+def tiget(url, target_time_str):
+    # --- 発売画面に遷移 ---
+    driver.get(url)
+    
+    # --- 発売時間まで待機 ---
+    wait_until(target_time_str)
+    driver.refresh()
+
+
+def livepocket_old(url, target_time_str):
+    # --- 発売画面に遷移 ---
+    driver.get(url)
+    
+    # --- 発売時間まで待機 ---
+    wait_until(target_time_str)
+    driver.refresh()
+
+
 if __name__ == "__main__":
     options = set_selenium_options()
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
     # url = r"https://livepocket.jp/e/0d_m0"
-    # new_livepocket(url)
-    
-    target_time = "2026-01-04 23:52:00"
     # url = r"https://ticketdive.com/event/20260125_"
-    url = r"https://ticketdive.com/event/SHIROMIZAKANA-live0105"
+    # url = r"https://tiget.net/events/451871"
+    # url = r"https://t.livepocket.jp/e/terasusekai_vol_04"
+
+    target_time = "2026-01-04 23:52:00"
+
+    # livepocket_new(url, target_time)
     ticketdive(url, target_time)
+    # tiget(url, target_time)
+    # livepocket_old(url, target_time)
+
     print_finish_time()
-    input()
+    input("END")
 
 
 
