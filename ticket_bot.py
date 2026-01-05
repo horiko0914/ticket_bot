@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 
+# sub func
 def set_selenium_options():
     options = webdriver.ChromeOptions()
 
@@ -35,7 +36,7 @@ def set_selenium_options():
 
     return options
 
-def login():
+def login(): # no_use
     login    = "horiko19960914@gmail.com"
     password = "Horiko914!"
     # driver.find_element_by_link_text("ログイン").click()
@@ -72,6 +73,8 @@ def print_finish_time():
     finish_time = datetime.now().strftime("%H:%M:%S")
     print(f"完了時刻 {finish_time}")
 
+
+# main func
 def new_livepocket(url):
     driver.get(url)
     input("ログイン完了したら Enter を押してください")
