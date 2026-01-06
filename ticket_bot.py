@@ -125,7 +125,7 @@ def livepocket_new(url, target_time_str):
     submit_button.click()
 
 def ticketdive(url, target_time_str):
-    zero_yen = True # 当日払いの場合はtrue
+    zero_yen = False # 当日払いの場合はtrue
     # --- 発売画面に遷移 ---
     driver.get(url)
 
@@ -147,10 +147,11 @@ def ticketdive(url, target_time_str):
     if zero_yen != True :
         # --- お目当てを選択 ---
         group_selects = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//select[option[text()='キュートアグレッションズ']]"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.FlexBox_flex__q0PvO select.Select_select__Wa03B"))
         )
         group_select = Select(group_selects)
-        group_select.select_by_visible_text("キュートアグレッションズ")
+        # group_select.select_by_visible_text("キュートアグレッションズ")
+        group_select.select_by_visible_text("Twilight BlooM.")
 
         # --- 決済方法を選択 ---
         konbini_label = wait.until(
@@ -159,7 +160,8 @@ def ticketdive(url, target_time_str):
         konbini_label.click()
 
         # 氏名・電話番号を入力
-        last_name = wait.until(EC.presence_of_element_located((By.NAME, "lastName")))
+        # last_name = wait.until(EC.presence_of_element_located((By.NAME, "lastName")))
+        last_name = wait.until(EC.visibility_of_element_located((By.NAME, "lastName")))
         first_name = driver.find_element(By.NAME, "firstName")
         phone = driver.find_element(By.NAME, "phoneNumber")
 
@@ -202,11 +204,12 @@ if __name__ == "__main__":
     wait = WebDriverWait(driver, 10)
 
     # url = r"https://livepocket.jp/e/0d_m0"
-    # url = r"https://ticketdive.com/event/20260125_"
     # url = r"https://tiget.net/events/451871"
     # url = r"https://t.livepocket.jp/e/terasusekai_vol_04"
+    
+    url = r"https://ticketdive.com/event/happy-111"
 
-    target_time = "2026-01-04 23:52:00"
+    target_time = "2026-01-07 22:00:00"
 
     # livepocket_new(url, target_time)
     ticketdive(url, target_time)
