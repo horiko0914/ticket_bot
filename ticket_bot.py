@@ -151,7 +151,9 @@ def ticketdive(url, target_time_str):
         )
         group_select = Select(group_selects)
         # group_select.select_by_visible_text("キュートアグレッションズ")
-        group_select.select_by_visible_text("Twilight BlooM.")
+        # group_select.select_by_visible_text("Twilight BlooM.")
+        group_select.select_by_visible_text("Aim")
+        # TODO 一番上を選択
 
         # --- 決済方法を選択 ---
         konbini_label = wait.until(
@@ -207,15 +209,14 @@ if __name__ == "__main__":
     # url = r"https://tiget.net/events/451871"
     # url = r"https://t.livepocket.jp/e/terasusekai_vol_04"
     
-    url = r"https://ticketdive.com/event/happy-111"
+    url = r"https://ticketdive.com/event/IGNITIONmini0115"
 
-    target_time = "2026-01-07 22:00:00"
+    target_time = "2026-01-10 22:00:00"
 
     # livepocket_new(url, target_time)
     ticketdive(url, target_time)
     # tiget(url, target_time)
     # livepocket_old(url, target_time)
-
     print_finish_time()
     input("END")
 
