@@ -86,6 +86,11 @@ def livepocket_new(url, target_time_str):
     wait_until(target_time_str)
     driver.refresh()
 
+    # --- iframe（AI Chat Support ウィジェット）を強制的に無効化 ---
+    driver.execute_script("""
+        const iframe = document.querySelector('iframe.ul-widget-main-window');
+        if (iframe) {iframe.remove();}
+    """)
     # --- チケットを購入する ボタンをクリック ---
     driver.find_element(By.CSS_SELECTOR, "a.event-detail-ticket-button").click()
 
@@ -190,7 +195,6 @@ def tiget(url, target_time_str):
     wait_until(target_time_str)
     driver.refresh()
 
-
 def livepocket_old(url, target_time_str):
     # --- 発売画面に遷移 ---
     driver.get(url)
@@ -209,12 +213,12 @@ if __name__ == "__main__":
     # url = r"https://tiget.net/events/451871"
     # url = r"https://t.livepocket.jp/e/terasusekai_vol_04"
     
-    url = r"https://ticketdive.com/event/IGNITIONmini0115"
+    url = r"https://livepocket.jp/e/0xmtw"
 
-    target_time = "2026-01-10 22:00:00"
+    target_time = "2026-01-21 20:00:00"
 
-    # livepocket_new(url, target_time)
-    ticketdive(url, target_time)
+    livepocket_new(url, target_time)
+    # ticketdive(url, target_time)
     # tiget(url, target_time)
     # livepocket_old(url, target_time)
     print_finish_time()
