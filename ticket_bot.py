@@ -106,16 +106,19 @@ def livepocket_new(url, target_time_str):
 
     # --- コンビニ決済を選択 ---
     cvs_label = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='order_form_payment_method_cvs'], #order_form_payment_method_cvs + span"))
+        EC.element_to_be_clickable((
+            By.XPATH,
+            # "//label[.//span[normalize-space()='コンビニ決済']]"
+            "//label[.//span[text()='クレジットカード決済']]"
+        ))
     )
     cvs_label.click()
-
     # --- ファミリーマート選択 ---
-    cvs_selects = wait.until(
-        EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
-    )
-    cvs_select = Select(cvs_selects)
-    cvs_select.select_by_visible_text("ファミリーマート")
+    # cvs_selects = wait.until(
+    #     EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
+    # )
+    # cvs_select = Select(cvs_selects)
+    # cvs_select.select_by_visible_text("ファミリーマート")
 
     # --- 同意チェック ---
     agree_label = wait.until(
@@ -127,7 +130,7 @@ def livepocket_new(url, target_time_str):
     submit_button =wait.until(
         EC.element_to_be_clickable((By.ID, "submit-button"))
     )
-    submit_button.click()
+    # submit_button.click()
 
 def ticketdive(url, target_time_str):
     zero_yen = False # 当日払いの場合はtrue
@@ -215,7 +218,7 @@ if __name__ == "__main__":
     
     url = r"https://livepocket.jp/e/0xmtw"
 
-    target_time = "2026-01-21 20:00:00"
+    target_time = "2026-01-22 23:43:00"
 
     livepocket_new(url, target_time)
     # ticketdive(url, target_time)
