@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import time
+from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -17,6 +18,8 @@ TD_DEFAULT_LAST = "堀"
 TD_DEFAULT_FIRST = "弘二"
 TD_DEFAULT_PHONE = "08026631429"
 
+CARD_SEC_NUM = "123"
+
 # ==================================================
 # グローバル
 # ==================================================
@@ -27,7 +30,9 @@ selenium_started = False
 # ==================================================
 def set_selenium_options():
     options = webdriver.ChromeOptions()
-    options.add_argument(r"--user-data-dir=C:\selenium\chrome-profile")
+    profile_dir = Path.cwd() / "Cookie"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    options.add_argument(f"--user-data-dir={str(profile_dir)}")
     options.add_argument("--start-maximized")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-notifications")
@@ -40,32 +45,49 @@ def set_selenium_options():
 # LivePocket
 # ==================================================
 def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode):
+    # --- チケットを購入する ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "a.event-detail-ticket-button"))
     ).click()
 
+    # --- チケット枚数選択 ---
     selects = wait.until(EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "select.input-select__select.js-ticket-select"))
     )
+    # 上から{ticket_index}番目のチケットを{ticket_count}枚選択
     Select(selects[ticket_index - 1]).select_by_value(str(ticket_count))
-
+    
+    # --- 次へ進む ボタンをクリック ---
     driver.find_element(
         By.CSS_SELECTOR, "button.js-ticket-submit-button"
     ).click()
 
-    if payment == "cvs":
+    # --- 支払い方法選択 ---
+    if payment == "cvs": # コンビニ決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//label[.//span[normalize-space()='コンビニ決済']]")
         )).click()
-    else:
+        
+        #ファミリーマートを選択
+        cvs_selects = wait.until(
+            EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
+        )
+        cvs_select = Select(cvs_selects)
+        cvs_select.select_by_visible_text("ファミリーマート")
+    
+    else: # クレジットカード決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//label[.//span[normalize-space()='クレジットカード決済']]")
         )).click()
+        # カード番号等の入力はログイン情報から自動入力されるはずなので不要
+        # カード番号入力も不要
 
+    # --- 同意チェック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "label.input-check--block"))
     ).click()
-
+    
+    # --- チケット購入 ボタンをクリック　---
     if not test_mode:
         wait.until(EC.element_to_be_clickable(
             (By.ID, "submit-button"))
@@ -74,24 +96,65 @@ def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode)
 # ==================================================
 # TicketDive
 # ==================================================
-def ticketdive(driver, wait, payment, last, first, phone, test_mode):
+def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, phone, test_mode):
+    # --- チケット枚数選択 ---
+    selects = wait.until(EC.presence_of_all_elements_located(
+        (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP"))
+    )
+    # 上から{ticket_index}番目のチケットを{ticket_count}枚選択
+    Select(selects[ticket_index - 1]).select_by_value(str(ticket_count))
+
+    # --- 申し込みをする ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "button.Button_rectMain___A3NV"))
     ).click()
 
-    if payment == "cvs":
+    # --- お目当てを選択 ---
+    select_elem = wait.until(
+        EC.presence_of_element_located((
+            By.XPATH,
+            "//span[contains(normalize-space(), 'お目当てのグループ')]"
+            "/ancestor::div[1]//select"
+        ))
+    )
+    select = Select(select_elem)
+    select.select_by_index(1)
+    # select.select_by_visible_text("キュートアグレッションズ")
+    # select.select_by_visible_text("Twilight BlooM.")
+    # select.select_by_visible_text("Aim")
+    # --- 決済方法を選択 ---
+    if payment == "cvs": # コンビニ決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//span[text()='コンビニ決済（前払い）']/ancestor::label"))
         ).click()
 
+        # 氏名・電話番号を入力
         driver.find_element(By.NAME, "lastName").send_keys(last)
         driver.find_element(By.NAME, "firstName").send_keys(first)
         driver.find_element(By.NAME, "phoneNumber").send_keys(phone)
 
-    else:
+    else: # クレジットカード決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//span[text()='クレジットカード']/ancestor::label"))
         ).click()
+
+        # 表示テキスト「セキュリティコード」を起点に親要素を取得
+        label_elem = wait.until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//*[normalize-space(text())='セキュリティコード']")
+            )
+        )
+        # その直後のiframeを取得
+        cvc_iframe = label_elem.find_element(By.XPATH, "following::iframe[1]")
+        # iframeに切り替え
+        driver.switch_to.frame(cvc_iframe)
+        # iframe内inputを取得
+        cvc_input = wait.until(EC.element_to_be_clickable((By.XPATH, "//input")))
+        # 入力
+        cvc_input.clear()
+        cvc_input.send_keys(CARD_SEC_NUM)
+        # 親フレームへ戻る
+        driver.switch_to.default_content()
 
     if not test_mode:
         wait.until(EC.element_to_be_clickable(
@@ -144,15 +207,20 @@ def selenium_runner():
         else:
             ticketdive(
                 driver, wait,
+                int(ticket_index_var.get()),
+                int(ticket_count_var.get()),
                 payment_var.get(),
                 last_name_var.get(),
                 first_name_var.get(),
                 phone_var.get(),
                 test_mode_var.get()
             )
+        if test_mode_var.get():
+            time.sleep(10)
 
     except Exception as e:
-        root.after(0, lambda: messagebox.showerror("エラー", str(e)))
+        err_msg = str(e)
+        root.after(0, lambda: messagebox.showerror("エラー", err_msg))
 
     finally:
         if driver:
