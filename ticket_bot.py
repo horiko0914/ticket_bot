@@ -72,9 +72,9 @@ def wait_until(target_time_str: str):
         else:
             time.sleep(0.01)
 
-def print_finish_time():
-    finish_time = datetime.now().strftime("%H:%M:%S")
-    print(f"完了時刻 {finish_time}")
+def print_time():
+    now_time = datetime.now().strftime("%H:%M:%S")
+    print(f"現在時刻 {now_time}")
 
 
 # main func
@@ -105,21 +105,31 @@ def livepocket_new(url, target_time_str):
     driver.find_element(By.CSS_SELECTOR, "button.js-ticket-submit-button").click()
 
     # --- コンビニ決済を選択 ---
-    cvs_label = wait.until(
-        EC.element_to_be_clickable((
-            By.XPATH,
-            # "//label[.//span[normalize-space()='コンビニ決済']]"
-            "//label[.//span[text()='クレジットカード決済']]"
-        ))
-    )
-    cvs_label.click()
-    # --- ファミリーマート選択 ---
-    # cvs_selects = wait.until(
-    #     EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
-    # )
-    # cvs_select = Select(cvs_selects)
-    # cvs_select.select_by_visible_text("ファミリーマート")
+    IS_COMBI = True
+    if IS_COMBI:
+        cvs_label = wait.until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//label[.//span[normalize-space()='コンビニ決済']]"
+            ))
+        )
+        cvs_label.click()
+        # --- ファミリーマート選択 ---
+        cvs_selects = wait.until(
+            EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
+        )
+        cvs_select = Select(cvs_selects)
+        cvs_select.select_by_visible_text("ファミリーマート")
 
+    else: # IS_COMBI ==False
+        cvs_label = wait.until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//label[.//span[text()='クレジットカード決済']]"
+            ))
+        )
+        cvs_label.click()
+    
     # --- 同意チェック ---
     agree_label = wait.until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "label.input-check--block"))
@@ -130,7 +140,7 @@ def livepocket_new(url, target_time_str):
     submit_button =wait.until(
         EC.element_to_be_clickable((By.ID, "submit-button"))
     )
-    # submit_button.click()
+    submit_button.click()
 
 def ticketdive(url, target_time_str):
     zero_yen = False # 当日払いの場合はtrue
@@ -142,9 +152,9 @@ def ticketdive(url, target_time_str):
     driver.refresh()
 
     # --- チケット枚数選択 ---
-    ticket_cards = driver.find_elements(By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
-    ticket_card_select = Select(ticket_cards[0].find_element(By.TAG_NAME, "select")) # 上から1番目のチケット
-    ticket_card_select.select_by_value("1") # 枚数を1枚を選択
+    # ticket_cards = driver.find_elements(By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
+    # ticket_card_select = Select(ticket_cards[0].find_element(By.TAG_NAME, "select")) # 上から1番目のチケット
+    # ticket_card_select.select_by_value("1") # 枚数を1枚を選択
 
     # --- 申し込みをする ボタンをクリック ---
     button = wait.until(
@@ -159,8 +169,8 @@ def ticketdive(url, target_time_str):
         )
         group_select = Select(group_selects)
         # group_select.select_by_visible_text("キュートアグレッションズ")
-        # group_select.select_by_visible_text("Twilight BlooM.")
-        group_select.select_by_visible_text("Aim")
+        group_select.select_by_visible_text("Twilight BlooM.")
+        # group_select.select_by_visible_text("Aim")
         # TODO 一番上を選択
 
         # --- 決済方法を選択 ---
@@ -216,16 +226,16 @@ if __name__ == "__main__":
     # url = r"https://tiget.net/events/451871"
     # url = r"https://t.livepocket.jp/e/terasusekai_vol_04"
     
-    url = r"https://livepocket.jp/e/0xmtw"
+    url = r"https://livepocket.jp/e/g_assort4"
 
-    target_time = "2026-01-22 23:43:00"
+    target_time = "2026-01-31 22:30:00"
 
+    print_time()
     livepocket_new(url, target_time)
     # ticketdive(url, target_time)
     # tiget(url, target_time)
     # livepocket_old(url, target_time)
-    print_finish_time()
-    input("END")
+    print_time()
 
 
 
