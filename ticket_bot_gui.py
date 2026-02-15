@@ -18,12 +18,13 @@ TD_DEFAULT_LAST = "堀"
 TD_DEFAULT_FIRST = "弘二"
 TD_DEFAULT_PHONE = "08026631429"
 
-CARD_SEC_NUM = "123"
+CARD_SEC_NUM = "345"
 
 # ==================================================
 # グローバル
 # ==================================================
 selenium_started = False
+driver_global = None
 
 # ==================================================
 # Selenium 設定
@@ -181,13 +182,13 @@ def get_target_datetime():
 # Selenium 実行
 # ==================================================
 def selenium_runner():
-    global selenium_started
-    driver = None
+    global selenium_started, driver_global
 
     try:
         target_dt = get_target_datetime()
 
-        driver = webdriver.Chrome(options=set_selenium_options())
+        driver_global = webdriver.Chrome(options=set_selenium_options())
+        driver = driver_global
         wait = WebDriverWait(driver, 10)
 
         driver.get(url_var.get())
@@ -218,21 +219,27 @@ def selenium_runner():
                 phone_var.get(),
                 test_mode_var.get()
             )
-        if test_mode_var.get():
-            time.sleep(10)
+
+        print("Selenium処理完了 — ブラウザは開いたまま")
 
     except Exception as e:
-        err_msg = str(e)
-        root.after(0, lambda: messagebox.showerror("エラー", err_msg))
+        root.after(0, lambda: messagebox.showerror("エラー", str(e)))
 
     finally:
-        if driver:
-            try:
-                driver.quit()
-            except Exception:
-                pass
         selenium_started = False
         root.after(0, lambda: start_btn.config(state="normal"))
+
+
+def close_browser():
+    global driver_global
+    if driver_global:
+        try:
+            driver_global.quit()
+        except:
+            pass
+        driver_global = None
+
+
 
 # ==================================================
 # GUI制御
@@ -363,6 +370,10 @@ ttk.Label(root, textvariable=now_label_var,
 # 開始
 start_btn = ttk.Button(root, text="開始", command=on_start)
 start_btn.grid(row=8, column=0, pady=10)
+
+close_btn = ttk.Button(root, text="ブラウザ終了", command=close_browser)
+close_btn.grid(row=8, column=1, pady=10)
+
 
 update_td_state()
 update_now()
