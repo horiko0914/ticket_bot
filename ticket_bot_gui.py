@@ -98,11 +98,14 @@ def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode)
 # ==================================================
 def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, phone, test_mode):
     # --- チケット枚数選択 ---
-    selects = wait.until(EC.presence_of_all_elements_located(
-        (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP"))
-    )
+    cards = wait.until(EC.presence_of_all_elements_located(
+        (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
+    ))
+
     # 上から{ticket_index}番目のチケットを{ticket_count}枚選択
-    Select(selects[ticket_index - 1]).select_by_value(str(ticket_count))
+    target_select = cards[ticket_index - 1].find_element(By.TAG_NAME, "select")
+    Select(target_select).select_by_value(str(ticket_count))
+
 
     # --- 申し込みをする ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
