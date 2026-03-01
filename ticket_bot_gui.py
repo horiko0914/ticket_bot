@@ -39,13 +39,15 @@ def set_selenium_options():
     options.add_argument("--disable-notifications")
     options.add_argument("--disable-extensions")
     options.add_argument("--lang=ja")
-    options.add_argument("--blink-settings=imagesEnabled=false")
+    # options.add_argument("--blink-settings=imagesEnabled=false")
+    # options.add_argument("--headless")
     return options
 
 # ==================================================
 # LivePocket
 # ==================================================
 def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode):
+    time.sleep(1)
     # --- チケットを購入する ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "a.event-detail-ticket-button"))
@@ -98,6 +100,14 @@ def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode)
 # TicketDive
 # ==================================================
 def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, phone, test_mode):
+    # チケットカード出現待ち
+    # select出現待ち
+    wait.until(
+        EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "select.TicketTypeCard_numberSelector__UcNLO")
+        )
+    )
+
     # --- チケット枚数選択 ---
     cards = wait.until(EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
@@ -197,8 +207,9 @@ def selenium_runner():
             if driver.service.process.poll() is not None:
                 raise RuntimeError("ブラウザが閉じられました")
             time.sleep(0.05)
-
+        
         driver.refresh()
+        print("処理開始:" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         if site_var.get() == "livepocket":
             livepocket_new(
@@ -220,7 +231,7 @@ def selenium_runner():
                 test_mode_var.get()
             )
 
-        print("Selenium処理完了 — ブラウザは開いたまま")
+        print("処理完了:" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     except Exception as e:
         root.after(0, lambda: messagebox.showerror("エラー", str(e)))
