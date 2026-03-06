@@ -1,4 +1,6 @@
 import threading
+import socket
+import struct
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -25,6 +27,8 @@ CARD_SEC_NUM = "345"
 # ==================================================
 selenium_started = False
 driver_global = None
+# NICT 時刻との差分（秒）
+time_offset = 0.0
 
 # ==================================================
 # Selenium 設定
@@ -47,7 +51,6 @@ def set_selenium_options():
 # LivePocket
 # ==================================================
 def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode):
-    time.sleep(1)
     # --- チケットを購入する ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "a.event-detail-ticket-button"))
@@ -100,13 +103,14 @@ def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode)
 # TicketDive
 # ==================================================
 def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, phone, test_mode):
+    # time.sleep(0.5)
     # チケットカード出現待ち
     # select出現待ち
-    wait.until(
-        EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "select.TicketTypeCard_numberSelector__UcNLO")
-        )
-    )
+    # wait.until(
+    #     EC.presence_of_element_located(
+    #         (By.CSS_SELECTOR, "select.TicketTypeCard_numberSelector__UcNLO")
+    #     )
+    # )
 
     # --- チケット枚数選択 ---
     cards = wait.until(EC.presence_of_all_elements_located(
@@ -188,6 +192,48 @@ def get_target_datetime():
         int(second_var.get())
     )
 
+# NICT / NTP 時刻取得
+def get_nict_time(server="ntp.nict.jp", timeout=5):
+    """NICT の NTP サーバから現在時刻を取得して datetime を返す。"""
+    try:
+        addr = (server, 123)
+        # NTP ヘッダー: LI=0, VN=3, Mode=3 (client)
+        msg = b"\x1b" + 47 * b"\0"
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(timeout)
+            s.sendto(msg, addr)
+            data, _ = s.recvfrom(48)
+
+        if len(data) < 48:
+            return None
+
+        unpacked = struct.unpack("!12I", data)
+        transmit_timestamp = unpacked[10] + float(unpacked[11]) / 2**32
+        # NTP epoch は 1900-01-01
+        NTP_DELTA = 2208988800
+        unix_time = transmit_timestamp - NTP_DELTA
+        return datetime.fromtimestamp(unix_time)
+    except Exception:
+        return None
+
+
+def sync_time_with_nict(label_var=None):
+    """NICT 時刻と同期し、差分を time_offset に設定する。"""
+    global time_offset
+    nict_dt = get_nict_time()
+    if nict_dt is None:
+        if label_var:
+            label_var.set("NICT時刻取得失敗")
+        return False
+
+    local_dt = datetime.now()
+    time_offset = (nict_dt - local_dt).total_seconds()
+    if label_var:
+        label_var.set(
+            f"NICT時刻: {nict_dt.strftime('%Y-%m-%d %H:%M:%S')} (差 {time_offset:+.3f}s)"
+        )
+    return True
+
 # ==================================================
 # Selenium 実行
 # ==================================================
@@ -203,13 +249,13 @@ def selenium_runner():
 
         driver.get(url_var.get())
 
-        while datetime.now() < target_dt:
+        while datetime.fromtimestamp(time.time() + time_offset) < target_dt:
             if driver.service.process.poll() is not None:
                 raise RuntimeError("ブラウザが閉じられました")
             time.sleep(0.05)
         
         driver.refresh()
-        print("処理開始:" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print("処理開始:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S"))
 
         if site_var.get() == "livepocket":
             livepocket_new(
@@ -231,7 +277,7 @@ def selenium_runner():
                 test_mode_var.get()
             )
 
-        print("処理完了:" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print("処理完了:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S"))
 
     except Exception as e:
         root.after(0, lambda: messagebox.showerror("エラー", str(e)))
@@ -283,7 +329,11 @@ def on_start():
     threading.Thread(target=selenium_runner, daemon=True).start()
 
 def update_now():
-    now_label_var.set(datetime.now().strftime("現在時刻：%Y-%m-%d %H:%M:%S"))
+    nict_now = datetime.fromtimestamp(time.time() + time_offset)
+    diff = (nict_now - datetime.now()).total_seconds()
+    nict_label_var.set(
+        f"NICT時刻：{nict_now.strftime('%Y-%m-%d %H:%M:%S')} (差 {diff:+.3f}s)"
+    )
     root.after(500, update_now)
 
 # ==================================================
@@ -305,7 +355,7 @@ now = datetime.now()
 url_var = tk.StringVar()
 site_var = tk.StringVar(value="livepocket")
 payment_var = tk.StringVar(value="cvs")
-test_mode_var = tk.BooleanVar(value=True)
+test_mode_var = tk.BooleanVar(value=False)
 
 ticket_index_var = tk.StringVar(value="1")
 ticket_count_var = tk.StringVar(value="1")
@@ -321,7 +371,7 @@ hour_var = tk.StringVar(value=now.hour)
 minute_var = tk.StringVar(value="00")
 second_var = tk.StringVar(value="00")
 
-now_label_var = tk.StringVar()
+nict_label_var = tk.StringVar()
 
 # URL
 ttk.Label(root, text="URL").grid(row=0, column=0, sticky="w")
@@ -354,6 +404,15 @@ ttk.Radiobutton(root, text="クレカ",
                 variable=payment_var, value="card",
                 command=update_td_state).grid(row=3, column=3)
 
+# チケット番号 / 枚数
+ttk.Label(root, text="チケット番号").grid(row=4, column=0)
+ttk.Entry(root, textvariable=ticket_index_var, width=4,
+          style="Enabled.TEntry").grid(row=4, column=1)
+
+ttk.Label(root, text="枚数").grid(row=4, column=2)
+ttk.Entry(root, textvariable=ticket_count_var, width=4,
+          style="Enabled.TEntry").grid(row=4, column=3)
+
 # TicketDive
 ttk.Label(root, text="姓").grid(row=5, column=0)
 e1 = ttk.Entry(root, textvariable=last_name_var, width=10)
@@ -373,19 +432,21 @@ td_entries = [(last_name_var, e1), (first_name_var, e2), (phone_var, e3)]
 ttk.Checkbutton(root, text="✓ テストモード（購入しない）",
                 variable=test_mode_var).grid(row=6, column=0, columnspan=3)
 
-# 現在時刻
-ttk.Label(root, textvariable=now_label_var,
+# NICT同期時刻
+ttk.Label(root, textvariable=nict_label_var,
           font=("Meiryo", 11, "bold")).grid(row=7, column=0,
                                            columnspan=6, sticky="w")
 
 # 開始
 start_btn = ttk.Button(root, text="開始", command=on_start)
-start_btn.grid(row=8, column=0, pady=10)
+start_btn.grid(row=9, column=0, pady=10)
 
 close_btn = ttk.Button(root, text="ブラウザ終了", command=close_browser)
-close_btn.grid(row=8, column=1, pady=10)
+close_btn.grid(row=9, column=1, pady=10)
 
 
 update_td_state()
+# 起動時に NICT 時刻と同期
+sync_time_with_nict(nict_label_var)
 update_now()
 root.mainloop()
