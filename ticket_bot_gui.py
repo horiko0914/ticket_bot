@@ -36,6 +36,7 @@ time_offset = 0.0
 def set_selenium_options():
     options = webdriver.ChromeOptions()
     profile_dir = Path.cwd() / "Cookie"
+    # profile_dir = Path.cwd() / "Cookie_another_accaunt"
     profile_dir.mkdir(parents=True, exist_ok=True)
     options.add_argument(f"--user-data-dir={str(profile_dir)}")
     options.add_argument("--start-maximized")
@@ -111,7 +112,6 @@ def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, p
     #         (By.CSS_SELECTOR, "select.TicketTypeCard_numberSelector__UcNLO")
     #     )
     # )
-
     # --- チケット枚数選択 ---
     cards = wait.until(EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
@@ -253,9 +253,8 @@ def selenium_runner():
             if driver.service.process.poll() is not None:
                 raise RuntimeError("ブラウザが閉じられました")
             time.sleep(0.05)
-        
+        print("処理開始:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
         driver.refresh()
-        print("処理開始:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S"))
 
         if site_var.get() == "livepocket":
             livepocket_new(
@@ -277,7 +276,7 @@ def selenium_runner():
                 test_mode_var.get()
             )
 
-        print("処理完了:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S"))
+        print("処理完了:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
 
     except Exception as e:
         root.after(0, lambda: messagebox.showerror("エラー", str(e)))
