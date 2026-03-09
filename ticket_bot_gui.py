@@ -9,10 +9,12 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 
-# ==================================================
+# ==================================================　　　
 # 定数
 # ==================================================
 TD_DISABLED_TEXT = "不要"
@@ -30,6 +32,19 @@ driver_global = None
 # NICT 時刻との差分（秒）
 time_offset = 0.0
 
+# デバッグ用: 各ステップの待ち時間を出力する
+MEASURE_TIMINGS = True
+
+def _log_timing(label: str, ms: float):
+    print(f"[TIMING] {label}: {ms:.1f}ms")
+
+
+def _time_step(label: str, last: float):
+    now = time.perf_counter()
+    if MEASURE_TIMINGS:
+        _log_timing(label, (now - last) * 1000)
+    return now
+
 # ==================================================
 # Selenium 設定
 # ==================================================
@@ -38,72 +53,158 @@ def set_selenium_options():
     profile_dir = Path.cwd() / "Cookie"
     # profile_dir = Path.cwd() / "Cookie_another_accaunt"
     profile_dir.mkdir(parents=True, exist_ok=True)
+
+    # Use a persistent profile for session reuse (keeps login status, cookies, etc.)
     options.add_argument(f"--user-data-dir={str(profile_dir)}")
+
+    # Reduce visual / rendering work to speed up interactions
     options.add_argument("--start-maximized")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-notifications")
     options.add_argument("--disable-extensions")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-infobars")
     options.add_argument("--lang=ja")
-    # options.add_argument("--blink-settings=imagesEnabled=false")
+
+    # Disable image loading (can significantly reduce page load time)
+    prefs = {
+        "profile.managed_default_content_settings.images": 2,
+        "profile.default_content_setting_values.notifications": 2,
+    }
+    options.add_experimental_option("prefs", prefs)
+
+    # Reduce automation detection and overhead
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+
+    # Uncomment for headless operation (can be slower for some sites, but removes UI overhead)
     # options.add_argument("--headless")
+
     return options
+
+
+def make_wait(driver, timeout=10):
+    """Create a WebDriverWait with a faster poll frequency and common ignored exceptions."""
+    return WebDriverWait(
+        driver,
+        timeout,
+        poll_frequency=0.1,
+        ignored_exceptions=[NoSuchElementException, StaleElementReferenceException],
+    )
+
+
+def fill_cvc_field(driver, wait, value: str):
+    """Fill the CVC/security code field inside its iframe.
+
+    Some payment fields are rendered in a third-party iframe and require
+    focusing the inner input and dispatching input/change events.
+    """
+    label_elem = wait.until(
+        EC.presence_of_element_located(
+            (By.XPATH, "//*[normalize-space(text())='セキュリティコード']")
+        )
+    )
+    cvc_iframe = label_elem.find_element(By.XPATH, "following::iframe[1]")
+    driver.switch_to.frame(cvc_iframe)
+
+    try:
+        # Ensure iframe has finished loading before interacting.
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        cvc_input = wait.until(EC.element_to_be_clickable((By.XPATH, "//input")))
+        ActionChains(driver).move_to_element(cvc_input).click().perform()
+
+        # Some payment widgets ignore send_keys; explicitly set value + dispatch events.
+        driver.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new KeyboardEvent('keyup', {bubbles:true}));",
+            cvc_input,
+            str(value),
+        )
+    finally:
+        driver.switch_to.default_content()
+
 
 # ==================================================
 # LivePocket
 # ==================================================
 def livepocket_new(driver, wait, ticket_index, ticket_count, payment, test_mode):
+    # --- 計測用タイマー ---
+    last = time.perf_counter()
+
     # --- チケットを購入する ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "a.event-detail-ticket-button"))
     ).click()
+    last = _time_step("click purchase button", last)
 
     # --- チケット枚数選択 ---
     selects = wait.until(EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "select.input-select__select.js-ticket-select"))
     )
+    last = _time_step("wait ticket select elements", last)
+
     # 上から{ticket_index}番目のチケットを{ticket_count}枚選択
     Select(selects[ticket_index - 1]).select_by_value(str(ticket_count))
-    
+    last = _time_step("select ticket count", last)
+
     # --- 次へ進む ボタンをクリック ---
     driver.find_element(
         By.CSS_SELECTOR, "button.js-ticket-submit-button"
     ).click()
+    last = _time_step("click next", last)
 
     # --- 支払い方法選択 ---
     if payment == "cvs": # コンビニ決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//label[.//span[normalize-space()='コンビニ決済']]")
         )).click()
+        last = _time_step("select cvs payment", last)
         
         #ファミリーマートを選択
         cvs_selects = wait.until(
             EC.presence_of_element_located((By.ID, "order_form_sbps_web_cvs_type"))
         )
+        last = _time_step("wait cvs chain select", last)
         cvs_select = Select(cvs_selects)
         cvs_select.select_by_visible_text("ファミリーマート")
+        last = _time_step("select cvs store", last)
     
     else: # クレジットカード決済
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//label[.//span[normalize-space()='クレジットカード決済']]")
         )).click()
+        last = _time_step("select card payment", last)
         # カード番号等の入力はログイン情報から自動入力されるはずなので不要
         # カード番号入力も不要
+
+        # セキュリティコード入力
+        # fill_cvc_field(driver, wait, CARD_SEC_NUM)
+        last = _time_step("enter cvc", last)
 
     # --- 同意チェック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "label.input-check--block"))
     ).click()
+    last = _time_step("click agreement", last)
     
     # --- チケット購入 ボタンをクリック　---
     if not test_mode:
         wait.until(EC.element_to_be_clickable(
             (By.ID, "submit-button"))
         ).click()
+        last = _time_step("click submit", last)
+    # 最終的なステップ時間（全体）
+    _time_step("total livepocket_new", last)
 
 # ==================================================
 # TicketDive
 # ==================================================
 def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, phone, test_mode):
+    last = time.perf_counter()
+
     # time.sleep(0.5)
     # チケットカード出現待ち
     # select出現待ち
@@ -116,22 +217,24 @@ def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, p
     cards = wait.until(EC.presence_of_all_elements_located(
         (By.CSS_SELECTOR, "div.TicketTypeCard_ticketTypeContainer__DP0TP")
     ))
+    last = _time_step("wait ticketdive card list", last)
 
     # 上から{ticket_index}番目のチケットを{ticket_count}枚選択
     target_select = cards[ticket_index - 1].find_element(By.TAG_NAME, "select")
     Select(target_select).select_by_value(str(ticket_count))
-
+    last = _time_step("select ticketdive count", last)
 
     # --- 申し込みをする ボタンをクリック ---
     wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "button.Button_rectMain___A3NV"))
     ).click()
+    last = _time_step("click ticketdive apply", last)
 
     # --- お目当てを選択 ---
     select_elem = wait.until(
         EC.presence_of_element_located((
             By.XPATH,
-            "//span[contains(normalize-space(), 'お目当てのグループ')]"
+            "//span[contains(normalize-space(), 'お目当て')]"
             "/ancestor::div[1]//select"
         ))
     )
@@ -153,32 +256,18 @@ def ticketdive(driver, wait, ticket_index, ticket_count, payment, last, first, p
 
     else: # クレジットカード決済
         wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//span[text()='クレジットカード']/ancestor::label"))
+            (By.XPATH, "//span[text()='カード決済（一括）']/ancestor::label"))
         ).click()
 
-        # 表示テキスト「セキュリティコード」を起点に親要素を取得
-        label_elem = wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//*[normalize-space(text())='セキュリティコード']")
-            )
-        )
-        # その直後のiframeを取得
-        cvc_iframe = label_elem.find_element(By.XPATH, "following::iframe[1]")
-        # iframeに切り替え
-        driver.switch_to.frame(cvc_iframe)
-        # iframe内inputを取得
-        cvc_input = wait.until(EC.element_to_be_clickable((By.XPATH, "//input")))
-        # 入力
-        cvc_input.clear()
-        cvc_input.send_keys(CARD_SEC_NUM)
-        # 親フレームへ戻る
-        driver.switch_to.default_content()
+        # セキュリティコード入力
+        fill_cvc_field(driver, wait, CARD_SEC_NUM)
 
     if not test_mode:
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, "//button[.//span[text()='申し込みを完了する']]"))
         ).click()
-
+        last = _time_step("click ticketdive submit", last)
+    _time_step("total ticketdive", last)
 # ==================================================
 # 日時
 # ==================================================
@@ -245,7 +334,7 @@ def selenium_runner():
 
         driver_global = webdriver.Chrome(options=set_selenium_options())
         driver = driver_global
-        wait = WebDriverWait(driver, 10)
+        wait = make_wait(driver)
 
         driver.get(url_var.get())
 
@@ -279,7 +368,8 @@ def selenium_runner():
         print("処理完了:" + datetime.fromtimestamp(time.time() + time_offset).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
 
     except Exception as e:
-        root.after(0, lambda: messagebox.showerror("エラー", str(e)))
+        msg = str(e)
+        root.after(0, lambda msg=msg: messagebox.showerror("エラー", msg))
 
     finally:
         selenium_started = False
