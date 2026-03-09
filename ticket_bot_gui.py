@@ -33,7 +33,7 @@ driver_global = None
 time_offset = 0.0
 
 # デバッグ用: 各ステップの待ち時間を出力する
-MEASURE_TIMINGS = True
+MEASURE_TIMINGS = False
 
 def _log_timing(label: str, ms: float):
     print(f"[TIMING] {label}: {ms:.1f}ms")

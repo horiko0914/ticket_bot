@@ -1,0 +1,44 @@
+https://livepocket.jp/e/kujhe
+コンビニ
+処理開始:2026-03-09 23:50:21.037
+[TIMING] click purchase button: 236.4ms
+[TIMING] wait ticket select elements: 242.3ms
+[TIMING] select ticket count: 107.5ms
+[TIMING] click next: 1090.6ms
+[TIMING] select cvs payment: 390.0ms
+[TIMING] wait cvs chain select: 22.1ms
+[TIMING] select cvs store: 225.4ms
+[TIMING] click agreement: 88.6ms
+[TIMING] total livepocket_new: 0.1ms
+処理完了:2026-03-09 23:50:23.813
+
+https://livepocket.jp/e/kujhe
+クレカ
+処理開始:2026-03-09 23:51:10.715
+[TIMING] click purchase button: 229.1ms
+[TIMING] wait ticket select elements: 191.4ms
+[TIMING] select ticket count: 126.4ms
+[TIMING] click next: 1037.2ms
+[TIMING] select card payment: 300.6ms
+[TIMING] enter cvc: 0.1ms
+[TIMING] click agreement: 344.0ms
+[TIMING] total livepocket_new: 0.2ms
+処理完了:2026-03-09 23:51:13.351
+
+https://ticketdive.com/event/Bzm9w4pmm3zpaqOe8oYH
+クレカ
+処理開始:2026-03-09 23:52:01.346
+[TIMING] wait ticketdive card list: 134.6ms
+[TIMING] select ticketdive count: 128.5ms
+[TIMING] click ticketdive apply: 90.8ms
+[TIMING] total ticketdive: 1842.8ms
+処理完了:2026-03-09 23:52:04.698
+
+https://ticketdive.com/event/IGNITIONmini0310
+コンビニ
+処理開始:2026-03-09 23:53:42.820
+[TIMING] wait ticketdive card list: 117.8ms
+[TIMING] select ticketdive count: 121.8ms
+[TIMING] click ticketdive apply: 92.3ms
+[TIMING] total ticketdive: 2030.1ms
+処理完了:2026-03-09 23:53:46.179
